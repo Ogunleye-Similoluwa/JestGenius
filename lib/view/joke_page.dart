@@ -315,7 +315,7 @@ class JokeCard extends StatelessWidget {
                   ),
                 ),
               SizedBox(height: 24),
-              if (joke.setup != null) ...[
+              if (joke.setup != null && joke.punchline != null) ...[
                 Text(
                   joke.setup!,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(

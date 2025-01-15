@@ -16,14 +16,13 @@ class JokeApp extends StatelessWidget {
       create: (_) => JokeProvider(),
       child: Consumer<JokeProvider>(
         builder: (context, jokeProvider, _) {
+          final colorScheme = jokeProvider.currentColorScheme;
+          
           return MaterialApp(
             title: 'Ultimate Joke Generator',
             theme: ThemeData(
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.orange,
-                brightness: Brightness.light,
-              ),
+              colorScheme: colorScheme.copyWith(brightness: Brightness.light),
               textTheme: GoogleFonts.poppinsTextTheme(),
               cardTheme: CardTheme(
                 elevation: 4,
@@ -32,21 +31,10 @@ class JokeApp extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
             ),
             darkTheme: ThemeData(
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.orange,
-                brightness: Brightness.dark,
-              ),
+              colorScheme: colorScheme.copyWith(brightness: Brightness.dark),
               textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
               cardTheme: CardTheme(
                 elevation: 4,
