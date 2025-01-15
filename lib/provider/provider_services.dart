@@ -23,7 +23,7 @@ class JokeProvider extends ChangeNotifier {
   List<JokeModel> jokeHistory = [];
   bool isLoading = false;
   // FlutterTts flutterTts = FlutterTts();
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode = ThemeMode.system;
   JokeStats stats = JokeStats();
   late ConfettiController confettiController;
   Timer? jokeTimer;
@@ -127,10 +127,26 @@ class JokeProvider extends ChangeNotifier {
   }
 
   Future<http.Response> _getJokeFromApi(JokeCategory category) {
-    final endpoint = categoryApis[category] ?? categoryApis[JokeCategory.all]!;
-    final headers = endpoint.contains('icanhazdadjoke') 
-      ? {'Accept': 'application/json'} 
-      : {'Content-Type': 'application/json'};
+    String endpoint;
+    Map<String, String> headers;
+
+    print('Fetching joke for category: ${category.name}'); // Debug log
+
+    if (category == JokeCategory.dad) {
+      endpoint = 'https://icanhazdadjoke.com/';
+      headers = {'Accept': 'application/json'};
+    } else if (category == JokeCategory.chuckNorris) {
+      endpoint = 'https://api.chucknorris.io/jokes/random';
+      headers = {'Content-Type': 'application/json'};
+    } else {
+      // Default to JokeAPI for other categories
+      String categoryParam = category == JokeCategory.all ? 'Any' : category.name;
+      endpoint = 'https://v2.jokeapi.dev/joke/$categoryParam?safe-mode';
+      headers = {'Content-Type': 'application/json'};
+    }
+
+    print('Using endpoint: $endpoint'); // Debug log
+    print('Using headers: $headers'); // Debug log
     
     return http.get(Uri.parse(endpoint), headers: headers);
   }
@@ -141,62 +157,75 @@ class JokeProvider extends ChangeNotifier {
       notifyListeners();
 
       try {
+        print('Starting joke fetch for category: ${category.name}'); // Debug log
         final response = await _getJokeFromApi(category);
+        print('Response status: ${response.statusCode}'); // Debug log
+        print('Response body: ${response.body}'); // Debug log
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          
+          print('Parsed data: $data'); // Debug log
+
           if (data is Map<String, dynamic>) {
-            if (data.containsKey('joke')) {
+            // Handle JokeAPI.dev response
+            if (data.containsKey('type')) {
+              if (data['type'] == 'single') {
+                currentJoke = JokeModel(
+                  id: data['id'].toString(),
+                  value: data['joke'],
+                  categories: [data['category']],
+                  createdAt: DateTime.now(),
+                );
+                print('Created single joke: ${currentJoke?.value}'); // Debug log
+              } else if (data['type'] == 'twopart') {
+                currentJoke = JokeModel(
+                  id: data['id'].toString(),
+                  value: '${data['setup']} - ${data['delivery']}',
+                  setup: data['setup'],
+                  punchline: data['delivery'],
+                  categories: [data['category']],
+                  createdAt: DateTime.now(),
+                );
+                print('Created twopart joke: ${currentJoke?.value}'); // Debug log
+              }
+            }
+            // Handle icanhazdadjoke response
+            else if (data.containsKey('joke')) {
               currentJoke = JokeModel(
                 id: data['id'].toString(),
                 value: data['joke'],
-                categories: [],
+                categories: ['dad'],
                 createdAt: DateTime.now(),
               );
-            } else if (data.containsKey('setup')) {
-              currentJoke = JokeModel(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                value: '${data['setup']} ${data['punchline']}',
-                setup: data['setup'],
-                punchline: data['punchline'],
-                categories: [],
-                createdAt: DateTime.now(),
-              );
-            } else if (data.containsKey('value')) {
+              print('Created dad joke: ${currentJoke?.value}'); // Debug log
+            }
+            // Handle Chuck Norris API response
+            else if (data.containsKey('value')) {
               currentJoke = JokeModel(
                 id: data['id'].toString(),
                 value: data['value'],
-                categories: List<String>.from(data['categories'] ?? []),
-                createdAt: data['created_at'] != null 
-                    ? DateTime.parse(data['created_at']) 
-                    : DateTime.now(),
+                categories: ['chuck norris'],
+                createdAt: DateTime.now(),
                 iconUrl: data['icon_url'],
               );
-            } else if (data.containsKey('type')) {
-              currentJoke = JokeModel(
-                id: data['id'].toString(),
-                value: data['type'] == 'single' 
-                    ? data['joke'] 
-                    : '${data['setup']} ${data['delivery']}',
-                setup: data['type'] == 'twopart' ? data['setup'] : null,
-                punchline: data['type'] == 'twopart' ? data['delivery'] : null,
-                categories: [data['category']],
-                createdAt: DateTime.now(),
-              );
+              print('Created Chuck Norris joke: ${currentJoke?.value}'); // Debug log
+            }
+
+            if (currentJoke != null) {
+              jokeHistory.insert(0, currentJoke!);
+              if (jokeHistory.length > 50) jokeHistory.removeLast();
+              stats.jokesRead++;
+              _saveStats();
+              _saveHistory();
+              if (showConfetti) confettiController.play();
             }
           }
-
-          if (currentJoke != null) {
-            jokeHistory.insert(0, currentJoke!);
-            if (jokeHistory.length > 50) jokeHistory.removeLast();
-            stats.jokesRead++;
-            _saveStats();
-            _saveHistory();
-            if (showConfetti) confettiController.play();
-          }
+        } else {
+          print('Error: Non-200 status code: ${response.statusCode}'); // Debug log
         }
-      } catch (e) {
-        print('Error fetching joke: $e');
+      } catch (e, stackTrace) {
+        print('Error fetching joke: $e'); // Debug log
+        print('Stack trace: $stackTrace'); // Debug log
         currentJoke = JokeModel(
           id: DateTime.now().toString(),
           value: 'Failed to fetch joke. Please try again.',
@@ -253,8 +282,33 @@ class JokeProvider extends ChangeNotifier {
   }
 
   void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    switch (_themeMode) {
+      case ThemeMode.light:
+        _themeMode = ThemeMode.dark;
+        break;
+      case ThemeMode.dark:
+        _themeMode = ThemeMode.system;
+        break;
+      case ThemeMode.system:
+        _themeMode = ThemeMode.light;
+        break;
+    }
+    _saveThemeMode();
     notifyListeners();
+  }
+
+  Future<void> _saveThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('theme_mode', _themeMode.index);
+  }
+
+  Future<void> loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeIndex = prefs.getInt('theme_mode');
+    if (themeIndex != null) {
+      _themeMode = ThemeMode.values[themeIndex];
+      notifyListeners();
+    }
   }
 
   Future<void> speakJoke([JokeModel? jokeToSpeak]) async {

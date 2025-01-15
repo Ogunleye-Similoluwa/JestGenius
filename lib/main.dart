@@ -13,7 +13,7 @@ class JokeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => JokeProvider(),
+      create: (_) => JokeProvider()..loadThemeMode(),
       child: Consumer<JokeProvider>(
         builder: (context, jokeProvider, _) {
           final colorScheme = jokeProvider.currentColorScheme;
@@ -34,14 +34,27 @@ class JokeApp extends StatelessWidget {
             ),
             darkTheme: ThemeData(
               useMaterial3: true,
-              colorScheme: colorScheme.copyWith(brightness: Brightness.dark),
-              textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+              colorScheme: colorScheme.copyWith(
+                brightness: Brightness.dark,
+                background: Colors.grey[900],
+                surface: Colors.grey[850],
+                primary: colorScheme.primary.withOpacity(0.8),
+                secondary: colorScheme.secondary.withOpacity(0.8),
+                onBackground: Colors.white.withOpacity(0.87),
+                onSurface: Colors.white.withOpacity(0.87),
+              ),
+              scaffoldBackgroundColor: Colors.black,
               cardTheme: CardTheme(
-                elevation: 4,
+                elevation: 8,
                 margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
+              ),
+              textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+              appBarTheme: AppBarTheme(
+                backgroundColor: Colors.grey[900],
+                elevation: 0,
               ),
             ),
             themeMode: jokeProvider.themeMode,

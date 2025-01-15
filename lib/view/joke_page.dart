@@ -24,7 +24,11 @@ class JokeHomePage extends StatelessWidget {
           title: Text('Ultimate Joke Generator'),
           actions: [
             IconButton(
-              icon: Icon(Icons.brightness_6),
+              icon: Icon(context.read<JokeProvider>().themeMode == ThemeMode.dark 
+                  ? Icons.dark_mode
+                  : context.read<JokeProvider>().themeMode == ThemeMode.light
+                      ? Icons.light_mode
+                      : Icons.brightness_auto),
               onPressed: () {
                 context.read<JokeProvider>().toggleTheme();
               },
