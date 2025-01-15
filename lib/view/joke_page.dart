@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
@@ -292,131 +293,244 @@ class JokeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
+      elevation: isDark ? 16 : 12,
+      shadowColor: Theme.of(context).colorScheme.primary.withOpacity(isDark ? 0.4 : 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primaryContainer,
-              Theme.of(context).colorScheme.secondaryContainer,
-            ],
+            colors: isDark 
+              ? [
+                  Colors.grey[850]!,
+                  Colors.grey[900]!,
+                ]
+              : [
+                  Theme.of(context).colorScheme.primaryContainer,
+                  Theme.of(context).colorScheme.secondaryContainer,
+                ],
           ),
         ),
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              if (joke.iconUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(50),
-                  child: Image.network(
-                    joke.iconUrl!,
-                    height: 100,
-                    width: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.emoji_emotions,
-                      size: 80,
-                      color: Theme.of(context).colorScheme.primary,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: isDark ? 5 : 10, sigmaY: isDark ? 5 : 10),
+            child: Container(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // Category Badge
+                  if (joke.categories.isNotEmpty)
+                    Chip(
+                      label: Text(
+                        joke.categories.first.toString().toUpperCase(),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
+                  SizedBox(height: 16),
+                  
+                  // Joke Icon or Image
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    ),
+                    child: joke.iconUrl != null
+                      ? ClipOval(
+                          child: Image.network(
+                            joke.iconUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildJokeIcon(context),
+                          ),
+                        )
+                      : _buildJokeIcon(context),
                   ),
-                ),
-              SizedBox(height: 24),
-              if (joke.setup != null && joke.punchline != null) ...[
-                Text(
-                  joke.setup!,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  joke.punchline!,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ] else
-                Text(
-                  joke.value,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-            ],
+                  SizedBox(height: 24),
+
+                  // Joke Content
+                  if (joke.setup != null && joke.punchline != null) ...[
+                    Text(
+                      joke.setup!,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 24),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        joke.punchline!,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                          height: 1.5,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      joke.value,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildJokeIcon(BuildContext context) {
+    return Icon(
+      _getJokeIcon(),
+      size: 40,
+      color: Theme.of(context).colorScheme.primary,
+    );
+  }
+
+  IconData _getJokeIcon() {
+    if (joke.categories.isEmpty) return Icons.emoji_emotions;
+    
+    switch (joke.categories.first.toLowerCase()) {
+      case 'programming':
+        return Icons.code;
+      case 'dark':
+        return Icons.dark_mode;
+      case 'pun':
+        return Icons.lightbulb;
+      case 'spooky':
+        return Icons.sports_kabaddi_outlined;
+      case 'christmas':
+        return Icons.celebration;
+      case 'dad':
+        return Icons.face;
+      case 'chuck norris':
+        return Icons.sports_kabaddi;
+      default:
+        return Icons.emoji_emotions;
+    }
+  }
 }
 
+// Enhanced JokeActions widget
 class JokeActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<JokeProvider>(
       builder: (context, jokeProvider, _) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: jokeProvider.currentJoke!.isFavorite ? 1.2 : 1.0,
-              duration: Duration(milliseconds: 200),
-              child: IconButton(
-                icon: Icon(
-                  jokeProvider.currentJoke!.isFavorite
-                      ? Icons.favorite
-                      : Icons.favorite_border,
-                  color: Colors.red,
-                ),
+        return Container(
+          margin: EdgeInsets.only(top: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildActionButton(
+                context,
+                icon: jokeProvider.currentJoke!.isFavorite
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+                color: Colors.red,
                 onPressed: () {
                   jokeProvider.toggleFavorite();
                   if (jokeProvider.currentJoke!.isFavorite) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Added to favorites!'),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
+                    _showSnackBar(context, 'Added to favorites!');
                   }
                 },
+                scale: jokeProvider.currentJoke!.isFavorite ? 1.2 : 1.0,
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.volume_up),
-              onPressed: jokeProvider.speakJoke,
-            ),
-            IconButton(
-              icon: Icon(Icons.share),
-              onPressed: () {
-                jokeProvider.shareJoke();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Joke shared!'),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+              SizedBox(width: 16),
+              _buildActionButton(
+                context,
+                icon: Icons.volume_up,
+                onPressed: jokeProvider.speakJoke,
+              ),
+              SizedBox(width: 16),
+              _buildActionButton(
+                context,
+                icon: Icons.share,
+                onPressed: () {
+                  jokeProvider.shareJoke();
+                  _showSnackBar(context, 'Joke shared!');
+                },
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color? color,
+    double scale = 1.0,
+  }) {
+    return AnimatedScale(
+      scale: scale,
+      duration: Duration(milliseconds: 200),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: IconButton(
+          icon: Icon(icon, color: color),
+          onPressed: onPressed,
+          splashRadius: 24,
+        ),
+      ),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {},
+        ),
+      ),
     );
   }
 }
@@ -424,20 +538,69 @@ class JokeActions extends StatelessWidget {
 class HistoryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Consumer<JokeProvider>(
       builder: (context, jokeProvider, _) {
         if (jokeProvider.jokeHistory.isEmpty) {
-          return Center(child: Text('No joke history yet!'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'No joke history yet!',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           itemCount: jokeProvider.jokeHistory.length,
           itemBuilder: (context, index) {
             final joke = jokeProvider.jokeHistory[index];
             return Card(
-              margin: EdgeInsets.all(8.0),
-              child: ListTile(
-                title: Text(joke.value),
-                subtitle: Text(joke.createdAt.toString().split('.').first),
+              elevation: isDark ? 4 : 2,
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark 
+                      ? [
+                          Colors.grey[850]!,
+                          Colors.grey[900]!,
+                        ]
+                      : [
+                          Theme.of(context).colorScheme.surface,
+                          Theme.of(context).colorScheme.surface,
+                        ],
+                  ),
+                ),
+                child: ListTile(
+                  contentPadding: EdgeInsets.all(16),
+                  title: Text(
+                    joke.value,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  subtitle: Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      DateFormat('MMM d, yyyy HH:mm').format(joke.createdAt!),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             );
           },
@@ -450,26 +613,35 @@ class HistoryTab extends StatelessWidget {
 class StatsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Consumer<JokeProvider>(
       builder: (context, jokeProvider, _) {
-        return Center(
+        return Container(
+          padding: EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              StatCard(
+              _buildStatCard(
+                context,
                 icon: Icons.visibility,
                 title: 'Jokes Read',
                 value: jokeProvider.stats.jokesRead.toString(),
+                isDark: isDark,
               ),
-              StatCard(
+              _buildStatCard(
+                context,
                 icon: Icons.favorite,
                 title: 'Jokes Favorited',
                 value: jokeProvider.stats.favorited.toString(),
+                isDark: isDark,
               ),
-              StatCard(
+              _buildStatCard(
+                context,
                 icon: Icons.share,
                 title: 'Jokes Shared',
                 value: jokeProvider.stats.shared.toString(),
+                isDark: isDark,
               ),
             ],
           ),
@@ -477,32 +649,55 @@ class StatsTab extends StatelessWidget {
       },
     );
   }
-}
 
-class StatCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  const StatCard({
-    Key? key,
-    required this.icon,
-    required this.title,
-    required this.value,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String value,
+    required bool isDark,
+  }) {
     return Card(
-      margin: EdgeInsets.all(8.0),
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
+      elevation: isDark ? 8 : 4,
+      margin: EdgeInsets.symmetric(vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark 
+              ? [
+                  Colors.grey[850]!,
+                  Colors.grey[900]!,
+                ]
+              : [
+                  Theme.of(context).colorScheme.primaryContainer,
+                  Theme.of(context).colorScheme.secondaryContainer,
+                ],
+          ),
+        ),
+        padding: EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(icon, size: 48),
+            Icon(
+              icon,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             SizedBox(height: 8),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            Text(value, style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -945,6 +1140,8 @@ class ThemeColorSelector extends StatelessWidget {
 class FavoritesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Consumer<JokeProvider>(
       builder: (context, jokeProvider, _) {
         if (jokeProvider.favoriteJokes.isEmpty) {
@@ -955,7 +1152,7 @@ class FavoritesTab extends StatelessWidget {
                 Icon(
                   Icons.favorite_border,
                   size: 64,
-                  color: Colors.grey,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                 ),
                 SizedBox(height: 16),
                 Text(
@@ -966,7 +1163,7 @@ class FavoritesTab extends StatelessWidget {
                 Text(
                   'Tap the heart icon on jokes you like',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey,
+                    color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                   ),
                 ),
               ],
@@ -976,102 +1173,187 @@ class FavoritesTab extends StatelessWidget {
 
         return ListView.builder(
           itemCount: jokeProvider.favoriteJokes.length,
+          padding: EdgeInsets.all(16),
           itemBuilder: (context, index) {
             final joke = jokeProvider.favoriteJokes[index];
             return Dismissible(
               key: Key(joke.id),
               background: Container(
-                color: Colors.red,
-                alignment: Alignment.centerRight,
-                padding: EdgeInsets.only(right: 16),
-                child: Icon(
-                  Icons.delete,
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.only(right: 24),
+                child: Icon(Icons.delete, color: Colors.white, size: 28),
               ),
               direction: DismissDirection.endToStart,
               onDismissed: (direction) {
+                joke.isFavorite = false;
                 jokeProvider.toggleFavorite();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Joke removed from favorites'),
-                    action: SnackBarAction(
-                      label: 'Undo',
-                      onPressed: () {
-                        jokeProvider.toggleFavorite();
-                      },
-                    ),
-                  ),
-                );
               },
               child: Card(
-                margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: joke.iconUrl != null ?NetworkImage(joke.iconUrl!):NetworkImage("https://images.app.goo.gl/9wvNz6yPSD9feivb7"),
-                    onBackgroundImageError: (_, __) {
-                      // Handle error loading image
-                    },
+                elevation: isDark ? 8 : 4,
+                margin: EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark 
+                        ? [
+                            Colors.grey[850]!,
+                            Colors.grey[900]!,
+                          ]
+                        : [
+                            Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                            Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.3),
+                          ],
+                    ),
                   ),
-                  title: Text(
-                    joke.value,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    'Added on ${DateFormat('MMM d, yyyy').format(joke.createdAt!)}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.share),
-                        onPressed: () {
-                          jokeProvider.shareJoke();
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.volume_up),
-                        onPressed: () {
-                          jokeProvider.speakJoke();
-                        },
-                      ),
-                    ],
-                  ),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        content: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Image.network(
-                                joke.iconUrl!,
-                                height: 100,
-                                width: 100,
-                                errorBuilder: (_, __, ___) => Icon(Icons.error),
-                              ),
-                              SizedBox(height: 16),
-                              Text(joke.value),
-                            ],
-                          ),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.all(16),
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                            Theme.of(context).colorScheme.secondary.withOpacity(0.7),
+                          ],
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text('Close'),
-                          ),
-                        ],
                       ),
-                    );
-                  },
+                      child: Icon(
+                        Icons.emoji_emotions,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                    title: Text(
+                      joke.value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: joke.createdAt != null 
+                        ? Text(
+                            'Added on ${DateFormat('MMM d, yyyy').format(joke.createdAt!)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          )
+                        : null,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildActionButton(
+                          context,
+                          icon: Icons.share,
+                          onPressed: () => Share.share(joke.value),
+                          isDark: isDark,
+                        ),
+                        SizedBox(width: 8),
+                        _buildActionButton(
+                          context,
+                          icon: Icons.volume_up,
+                          onPressed: () async {
+                            await jokeProvider.flutterTts.speak(joke.value);
+                          },
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                    onTap: () => _showJokeDialog(context, joke),
+                  ),
                 ),
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onPressed,
+    required bool isDark,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isDark 
+          ? Colors.grey[800] 
+          : Theme.of(context).colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.primary,
+          size: 20,
+        ),
+        onPressed: onPressed,
+        splashRadius: 24,
+      ),
+    );
+  }
+
+  void _showJokeDialog(BuildContext context, JokeModel joke) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.emoji_emotions,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              SizedBox(height: 16),
+              Text(
+                joke.value,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  height: 1.5,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 }
