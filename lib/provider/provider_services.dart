@@ -21,7 +21,7 @@ class JokeProvider extends ChangeNotifier {
   List<JokeModel> favoriteJokes = [];
   List<JokeModel> jokeHistory = [];
   bool isLoading = false;
-  FlutterTts flutterTts = FlutterTts();
+  // FlutterTts flutterTts = FlutterTts();
   ThemeMode _themeMode = ThemeMode.light;
   JokeStats stats = JokeStats();
   late ConfettiController confettiController;
@@ -46,6 +46,26 @@ class JokeProvider extends ChangeNotifier {
 
   JokeCategory _selectedCategory = JokeCategory.all;
   JokeCategory get selectedCategory => _selectedCategory;
+
+  final FlutterTts flutterTts = FlutterTts();
+  String _selectedVoice = 'en-US';
+  double _pitch = 1.0;
+  double _volume = 1.0;
+  
+  final List<ColorScheme> themeColors = [
+    ColorScheme.fromSeed(seedColor: Colors.blue),
+    ColorScheme.fromSeed(seedColor: Colors.purple),
+    ColorScheme.fromSeed(seedColor: Colors.orange),
+    ColorScheme.fromSeed(seedColor: Colors.green),
+    ColorScheme.fromSeed(seedColor: Colors.pink),
+  ];
+  int _selectedColorSchemeIndex = 0;
+  ColorScheme get currentColorScheme => themeColors[_selectedColorSchemeIndex];
+
+  String get selectedVoice => _selectedVoice;
+  double get pitch => _pitch;
+  double get volume => _volume;
+  int get selectedColorSchemeIndex => _selectedColorSchemeIndex;
 
   JokeProvider() {
     confettiController = ConfettiController(duration: Duration(seconds: 1));
@@ -101,37 +121,15 @@ class JokeProvider extends ChangeNotifier {
   }
 
   Future<http.Response> _getJokeFromApi(JokeCategory category) {
-    String endpoint;
-    
-    switch (category) {
-      case JokeCategory.programming:
-        endpoint = 'https://v2.jokeapi.dev/joke/Programming?safe-mode';
-        break;
-      case JokeCategory.chuckNorris:
-        endpoint = 'https://api.chucknorris.io/jokes/random';
-        break;
-      case JokeCategory.dad:
-        endpoint = 'https://icanhazdadjoke.com/';
-        break;
-      case JokeCategory.oneLiners:
-        endpoint = 'https://v2.jokeapi.dev/joke/Miscellaneous?safe-mode&type=single';
-        break;
-      case JokeCategory.pun:
-        endpoint = 'https://v2.jokeapi.dev/joke/Pun?safe-mode';
-        break;
-      default:
-        final random = Random();
-        endpoint = apiEndpoints[random.nextInt(apiEndpoints.length)];
-    }
-
+    final endpoint = categoryApis[category] ?? categoryApis[JokeCategory.all]!;
     final headers = endpoint.contains('icanhazdadjoke') 
       ? {'Accept': 'application/json'} 
       : {'Content-Type': 'application/json'};
-      
+    
     return http.get(Uri.parse(endpoint), headers: headers);
   }
 
-  Future<void> fetchJoke({JokeCategory category = JokeCategory.chuckNorris}) async {
+  Future<void> fetchJoke({JokeCategory category = JokeCategory.all}) async {
     if (await _checkConnectivity()) {
       isLoading = true;
       notifyListeners();
@@ -140,13 +138,49 @@ class JokeProvider extends ChangeNotifier {
         final response = await _getJokeFromApi(category);
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          currentJoke = JokeModel.fromJson(data);
-          jokeHistory.insert(0, currentJoke!);
-          if (jokeHistory.length > 50) jokeHistory.removeLast();
-          stats.jokesRead++;
-          _saveStats();
-          _saveHistory();
-          confettiController.play();
+          
+          if (data is Map<String, dynamic>) {
+            if (data.containsKey('joke')) {
+              currentJoke = JokeModel(
+                id: data['id'],
+                value: data['joke'],
+                categories: [],
+                createdAt: DateTime.now(),
+              );
+            } else if (data.containsKey('setup')) {
+              currentJoke = JokeModel(
+                id: DateTime.now().toString(),
+                value: '${data['setup']} ${data['punchline']}',
+                setup: data['setup'],
+                punchline: data['punchline'],
+                categories: [],
+                createdAt: DateTime.now(),
+              );
+            } else if (data.containsKey('value')) {
+              currentJoke = JokeModel.fromJson(data);
+            } else if (data.containsKey('joke') || data.containsKey('delivery')) {
+              currentJoke = JokeModel(
+                id: data['id'].toString(),
+                value: data['type'] == 'single' 
+                  ? data['joke'] 
+                  : '${data['setup']} ${data['delivery']}',
+                setup: data['type'] == 'twopart' ? data['setup'] : null,
+                punchline: data['type'] == 'twopart' ? data['delivery'] : null,
+                categories: [data['category']],
+                createdAt: DateTime.now(),
+              );
+            }
+          }
+
+          if (currentJoke != null) {
+            jokeHistory.insert(0, currentJoke!);
+            if (jokeHistory.length > 50) jokeHistory.removeLast();
+            stats.jokesRead++;
+            _saveStats();
+            _saveHistory();
+            if (showConfetti) confettiController.play();
+            if (autoReadEnabled) await speakJoke();
+          }
         }
       } catch (e) {
         print('Error fetching joke: $e');
@@ -204,40 +238,15 @@ class JokeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Future<void> fetchJoke() async {
-  //   isLoading = true;
-  //   notifyListeners();
-  //
-  //   try {
-  //     final response = await http.get(Uri.parse(apiEndpoints[0]));
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       currentJoke = JokeModel.fromJson(data);
-  //     }
-  //   } catch (e) {
-  //     print('Error fetching joke: $e');
-  //   }
-  //
-  //   isLoading = false;
-  //   notifyListeners();
-  // }
-  //
-  // void toggleFavorite() {
-  //   if (currentJoke != null) {
-  //     currentJoke!.isFavorite = !currentJoke!.isFavorite;
-  //     if (currentJoke!.isFavorite) {
-  //       favoriteJokes.add(currentJoke!);
-  //     } else {
-  //       favoriteJokes.removeWhere((joke) => joke.id == currentJoke!.id);
-  //     }
-  //     notifyListeners();
-  //     _saveFavorites();
-  //   }
-  // }
-
   Future<void> speakJoke() async {
     if (currentJoke != null) {
-      await flutterTts.speak(currentJoke!.value);
+      if (currentJoke!.setup != null) {
+        await flutterTts.speak(currentJoke!.setup!);
+        await Future.delayed(Duration(seconds: 2));
+        await flutterTts.speak(currentJoke!.punchline!);
+      } else {
+        await flutterTts.speak(currentJoke!.value);
+      }
     }
   }
 
@@ -364,4 +373,46 @@ class JokeProvider extends ChangeNotifier {
     _selectedCategory = category;
     notifyListeners();
   }
+
+  Future<void> initTts() async {
+    await flutterTts.setLanguage(_selectedVoice);
+    await flutterTts.setPitch(_pitch);
+    await flutterTts.setVolume(_volume);
+    
+    final voices = await flutterTts.getVoices;
+    print('Available voices: $voices');
+  }
+
+  Future<void> setVoice(String voice) async {
+    _selectedVoice = voice;
+    await flutterTts.setLanguage(voice);
+    notifyListeners();
+  }
+
+  Future<void> setPitch(double pitch) async {
+    _pitch = pitch;
+    await flutterTts.setPitch(pitch);
+    notifyListeners();
+  }
+
+  Future<void> setVolume(double volume) async {
+    _volume = volume;
+    await flutterTts.setVolume(volume);
+    notifyListeners();
+  }
+
+  void setColorScheme(int index) {
+    _selectedColorSchemeIndex = index;
+    notifyListeners();
+  }
+
+  final Map<JokeCategory, String> categoryApis = {
+    JokeCategory.programming: 'https://v2.jokeapi.dev/joke/Programming?safe-mode',
+    JokeCategory.pun: 'https://v2.jokeapi.dev/joke/Pun?safe-mode',
+    JokeCategory.dad: 'https://icanhazdadjoke.com/',
+    JokeCategory.knockKnock: 'https://official-joke-api.appspot.com/jokes/knock-knock/random',
+    JokeCategory.chuckNorris: 'https://api.chucknorris.io/jokes/random',
+    JokeCategory.oneLiners: 'https://v2.jokeapi.dev/joke/Miscellaneous,Dark?safe-mode&type=single',
+    JokeCategory.all: 'https://v2.jokeapi.dev/joke/Any?safe-mode',
+  };
 }

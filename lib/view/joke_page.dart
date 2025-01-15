@@ -511,10 +511,10 @@ class SettingsPage extends StatelessWidget {
         builder: (context, jokeProvider, _) {
           return ListView(
             children: [
-              _buildThemeSection(context, jokeProvider),
+              ThemeColorSelector(),
+              VoiceSettings(),
               _buildNotificationSection(context, jokeProvider),
               _buildAutoPlaySection(context, jokeProvider),
-              _buildTextToSpeechSection(context, jokeProvider),
               _buildDataManagementSection(context, jokeProvider),
               _buildAboutSection(context),
             ],
@@ -840,6 +840,97 @@ class SettingsSection extends StatelessWidget {
   }
 }
 
+class VoiceSettings extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<JokeProvider>(
+      builder: (context, jokeProvider, _) {
+        return SettingsSection(
+          title: 'Voice Settings',
+          children: [
+            ListTile(
+              title: Text('Voice Language'),
+              subtitle: Text(jokeProvider.selectedVoice),
+              trailing: DropdownButton<String>(
+                value: jokeProvider.selectedVoice,
+                items: [
+                  DropdownMenuItem(value: 'en-US', child: Text('US English')),
+                  DropdownMenuItem(value: 'en-GB', child: Text('British English')),
+                  DropdownMenuItem(value: 'en-AU', child: Text('Australian English')),
+                ],
+                onChanged: (value) {
+                  if (value != null) jokeProvider.setVoice(value);
+                },
+              ),
+            ),
+            ListTile(
+              title: Text('Voice Pitch'),
+              subtitle: Slider(
+                value: jokeProvider.pitch,
+                min: 0.5,
+                max: 2.0,
+                divisions: 15,
+                label: jokeProvider.pitch.toStringAsFixed(1),
+                onChanged: (value) => jokeProvider.setPitch(value),
+              ),
+            ),
+            ListTile(
+              title: Text('Voice Volume'),
+              subtitle: Slider(
+                value: jokeProvider.volume,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                label: (jokeProvider.volume * 100).toStringAsFixed(0) + '%',
+                onChanged: (value) => jokeProvider.setVolume(value),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Add ColorScheme selector to SettingsPage
+class ThemeColorSelector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<JokeProvider>(
+      builder: (context, jokeProvider, _) {
+        return SettingsSection(
+          title: 'Theme Colors',
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(
+                jokeProvider.themeColors.length,
+                (index) => GestureDetector(
+                  onTap: () => jokeProvider.setColorScheme(index),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: jokeProvider.themeColors[index].primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: index == jokeProvider.selectedColorSchemeIndex
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class FavoritesTab extends StatelessWidget {
   @override
