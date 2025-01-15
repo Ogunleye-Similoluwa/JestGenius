@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../jokes_model/model.dart';
 import '../View/joke_page.dart';
@@ -67,50 +68,51 @@ class JokeTab extends StatelessWidget {
       builder: (context, jokeProvider, _) {
         return Stack(
           children: [
-            Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ConfettiWidget(
-                      confettiController: jokeProvider.confettiController,
-                      blastDirection: -pi / 2,
-                      particleDrag: 0.05,
-                      emissionFrequency: 0.05,
-                      numberOfParticles: 20,
-                      gravity: 0.05,
-                      shouldLoop: false,
-                      colors: const [
-                        Colors.green,
-                        Colors.blue,
-                        Colors.pink,
-                        Colors.orange,
-                        Colors.purple
+            CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        CategorySelector(),
+                        SizedBox(height: 16),
+                        if (jokeProvider.isLoading)
+                          JokeShimmer()
+                        else if (jokeProvider.currentJoke != null) ...[
+                          AnimatedSwitcher(
+                            duration: Duration(milliseconds: 500),
+                            child: JokeCard(
+                              key: ValueKey(jokeProvider.currentJoke!.id),
+                              joke: jokeProvider.currentJoke!,
+                            ),
+                          ),
+                          JokeActions(),
+                          NextJokeButton(jokeProvider: jokeProvider),
+                        ] else
+                          EmptyJokeState(),
                       ],
                     ),
-                    if (jokeProvider.isLoading)
-                      CircularProgressIndicator()
-                    else if (jokeProvider.currentJoke != null) ...[
-                      CategoryChips(),
-                      SizedBox(height: 20),
-                      JokeCard(joke: jokeProvider.currentJoke!),
-                      JokeActions(),
-                    ],
-                    SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () => jokeProvider.fetchJoke(),
-                      child: Text(
-                        jokeProvider.currentJoke == null
-                            ? 'Get Joke'
-                            : 'Next Joke',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+            Positioned.fill(
+              child: ConfettiWidget(
+                confettiController: jokeProvider.confettiController,
+                blastDirection: -pi / 2,
+                particleDrag: 0.05,
+                emissionFrequency: 0.05,
+                numberOfParticles: 20,
+                gravity: 0.05,
+                shouldLoop: false,
+                colors: const [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple
+                ],
               ),
             ),
           ],
@@ -120,19 +122,155 @@ class JokeTab extends StatelessWidget {
   }
 }
 
-class CategoryChips extends StatelessWidget {
+class CategorySelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8.0,
-      children: JokeCategory.values.map((category) {
-        return FilterChip(
-          label: Text(category.toString().split('.').last),
-          onSelected: (bool selected) {
-            context.read<JokeProvider>().fetchJoke(category: category);
-          },
+    return Consumer<JokeProvider>(
+      builder: (context, jokeProvider, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(left: 16, bottom: 8),
+              child: Text(
+                'Categories',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: JokeCategory.values.map((category) {
+                  final isSelected = jokeProvider.selectedCategory == category;
+                  return Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: AnimatedScale(
+                      scale: isSelected ? 1.1 : 1.0,
+                      duration: Duration(milliseconds: 200),
+                      child: FilterChip(
+                        selected: isSelected,
+                        showCheckmark: false,
+                        avatar: Icon(
+                          category.icon,
+                          size: 18,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.primary,
+                        ),
+                        label: Text(category.label),
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : null,
+                        ),
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        onSelected: (bool selected) {
+                          jokeProvider.setCategory(category);
+                          jokeProvider.fetchJoke(category: category);
+                        },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         );
-      }).toList(),
+      },
+    );
+  }
+}
+
+class JokeShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Card(
+        child: Container(
+          height: 200,
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(height: 16),
+              Container(
+                height: 16,
+                color: Colors.white,
+              ),
+              SizedBox(height: 8),
+              Container(
+                height: 16,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class NextJokeButton extends StatelessWidget {
+  final JokeProvider jokeProvider;
+
+  const NextJokeButton({Key? key, required this.jokeProvider}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: ElevatedButton.icon(
+        onPressed: () => jokeProvider.fetchJoke(
+          category: jokeProvider.selectedCategory,
+        ),
+        icon: Icon(Icons.refresh),
+        label: Text('Next Joke'),
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EmptyJokeState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.sentiment_very_satisfied,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Ready for a laugh?',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Tap a category or the button below to get started!',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -145,34 +283,68 @@ class JokeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            if (joke.iconUrl != null)
-              Image.network(joke.iconUrl!, height: 100, width: 100),
-            SizedBox(height: 16),
-            if (joke.setup != null)
-              Text(
-                joke.setup!,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-            if (joke.setup != null) SizedBox(height: 8),
-            if (joke.punchline != null)
-              Text(
-                joke.punchline!,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-            if (joke.value != null && joke.setup == null)
-              Text(
-                joke.value,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-          ],
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.primaryContainer,
+              Theme.of(context).colorScheme.secondaryContainer,
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              if (joke.iconUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(50),
+                  child: Image.network(
+                    joke.iconUrl!,
+                    height: 100,
+                    width: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.emoji_emotions,
+                      size: 80,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              SizedBox(height: 24),
+              if (joke.setup != null) ...[
+                Text(
+                  joke.setup!,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  joke.punchline!,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ] else
+                Text(
+                  joke.value,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -187,14 +359,31 @@ class JokeActions extends StatelessWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              icon: Icon(
-                jokeProvider.currentJoke!.isFavorite
-                    ? Icons.favorite
-                    : Icons.favorite_border,
-                color: Colors.red,
+            AnimatedScale(
+              scale: jokeProvider.currentJoke!.isFavorite ? 1.2 : 1.0,
+              duration: Duration(milliseconds: 200),
+              child: IconButton(
+                icon: Icon(
+                  jokeProvider.currentJoke!.isFavorite
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: Colors.red,
+                ),
+                onPressed: () {
+                  jokeProvider.toggleFavorite();
+                  if (jokeProvider.currentJoke!.isFavorite) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Added to favorites!'),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
-              onPressed: jokeProvider.toggleFavorite,
             ),
             IconButton(
               icon: Icon(Icons.volume_up),
@@ -202,7 +391,18 @@ class JokeActions extends StatelessWidget {
             ),
             IconButton(
               icon: Icon(Icons.share),
-              onPressed: jokeProvider.shareJoke,
+              onPressed: () {
+                jokeProvider.shareJoke();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Joke shared!'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         );

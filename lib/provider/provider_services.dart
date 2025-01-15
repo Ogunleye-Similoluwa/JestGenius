@@ -40,8 +40,12 @@ class JokeProvider extends ChangeNotifier {
   final List<String> apiEndpoints = [
     'https://api.chucknorris.io/jokes/random',
     'https://official-joke-api.appspot.com/random_joke',
-
+    'https://v2.jokeapi.dev/joke/Any?safe-mode',
+    'https://icanhazdadjoke.com/',
   ];
+
+  JokeCategory _selectedCategory = JokeCategory.all;
+  JokeCategory get selectedCategory => _selectedCategory;
 
   JokeProvider() {
     confettiController = ConfettiController(duration: Duration(seconds: 1));
@@ -97,9 +101,34 @@ class JokeProvider extends ChangeNotifier {
   }
 
   Future<http.Response> _getJokeFromApi(JokeCategory category) {
-    final random = Random();
-    final endpoint = apiEndpoints[random.nextInt(apiEndpoints.length)];
-    return http.get(Uri.parse(endpoint));
+    String endpoint;
+    
+    switch (category) {
+      case JokeCategory.programming:
+        endpoint = 'https://v2.jokeapi.dev/joke/Programming?safe-mode';
+        break;
+      case JokeCategory.chuckNorris:
+        endpoint = 'https://api.chucknorris.io/jokes/random';
+        break;
+      case JokeCategory.dad:
+        endpoint = 'https://icanhazdadjoke.com/';
+        break;
+      case JokeCategory.oneLiners:
+        endpoint = 'https://v2.jokeapi.dev/joke/Miscellaneous?safe-mode&type=single';
+        break;
+      case JokeCategory.pun:
+        endpoint = 'https://v2.jokeapi.dev/joke/Pun?safe-mode';
+        break;
+      default:
+        final random = Random();
+        endpoint = apiEndpoints[random.nextInt(apiEndpoints.length)];
+    }
+
+    final headers = endpoint.contains('icanhazdadjoke') 
+      ? {'Accept': 'application/json'} 
+      : {'Content-Type': 'application/json'};
+      
+    return http.get(Uri.parse(endpoint), headers: headers);
   }
 
   Future<void> fetchJoke({JokeCategory category = JokeCategory.chuckNorris}) async {
@@ -328,6 +357,11 @@ class JokeProvider extends ChangeNotifier {
   void resetStats() {
     stats = JokeStats();
     _saveStats();
+    notifyListeners();
+  }
+
+  void setCategory(JokeCategory category) {
+    _selectedCategory = category;
     notifyListeners();
   }
 }
