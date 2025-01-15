@@ -21,7 +21,12 @@ class JokeHomePage extends StatelessWidget {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Ultimate Joke Generator'),
+          title: Text('JestGenius', 
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
           actions: [
             IconButton(
               icon: Icon(context.read<JokeProvider>().themeMode == ThemeMode.dark 

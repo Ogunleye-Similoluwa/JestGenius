@@ -19,7 +19,7 @@ class JokeApp extends StatelessWidget {
           final colorScheme = jokeProvider.currentColorScheme;
           
           return MaterialApp(
-            title: 'Ultimate Joke Generator',
+            title: 'JestGenius',
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: colorScheme.copyWith(brightness: Brightness.light),
