@@ -9,6 +9,8 @@ class JokeModel {
   final String? setup;
   final String? punchline;
   bool isFavorite;
+  double? rating;
+  int ratingCount;
 
   JokeModel({
     required this.categories,
@@ -21,6 +23,8 @@ class JokeModel {
     this.setup,
     this.punchline,
     this.isFavorite = false,
+    this.rating,
+    this.ratingCount = 0,
   });
 
   factory JokeModel.fromJson(Map<String, dynamic> json) {

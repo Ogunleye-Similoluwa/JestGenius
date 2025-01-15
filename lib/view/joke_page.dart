@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter/services.dart';
 
 import '../jokes_model/model.dart';
 import '../View/joke_page.dart';
@@ -513,7 +514,7 @@ class SettingsPage extends StatelessWidget {
             children: [
               ThemeColorSelector(),
               VoiceSettings(),
-              _buildNotificationSection(context, jokeProvider),
+              // _buildNotificationSection(context, jokeProvider),
               _buildAutoPlaySection(context, jokeProvider),
               _buildDataManagementSection(context, jokeProvider),
               _buildAboutSection(context),
@@ -1017,7 +1018,7 @@ class FavoritesTab extends StatelessWidget {
                       IconButton(
                         icon: Icon(Icons.share),
                         onPressed: () {
-                          Share.share(joke.value);
+                          jokeProvider.shareJoke();
                         },
                       ),
                       IconButton(
@@ -1064,4 +1065,91 @@ class FavoritesTab extends StatelessWidget {
       },
     );
   }
+}
+
+class SearchJokeDelegate extends SearchDelegate<String> {
+  final List<JokeModel> jokes;
+
+  SearchJokeDelegate(this.jokes);
+
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: Icon(Icons.clear),
+        onPressed: () => query = '',
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: Icon(Icons.arrow_back),
+      onPressed: () => close(context, ''),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) => buildSuggestions(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    final suggestions = query.isEmpty
+        ? []
+        : jokes.where((joke) =>
+            joke.value.toLowerCase().contains(query.toLowerCase())).toList();
+
+    return ListView.builder(
+      itemCount: suggestions.length,
+      itemBuilder: (context, index) {
+        final joke = suggestions[index];
+        return ListTile(
+          title: Text(joke.value),
+          onTap: () {
+            context.read<JokeProvider>().setCurrentJoke(joke);
+            close(context, joke.value);
+          },
+        );
+      },
+    );
+  }
+}
+
+class SocialShareSheet extends StatelessWidget {
+  final JokeModel joke;
+
+  const SocialShareSheet({Key? key, required this.joke}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.text_snippet),
+            title: Text('Copy Text'),
+            onTap: () => Clipboard.setData(ClipboardData(text: joke.value)),
+          ),
+          ListTile(
+            leading: Icon(Icons.image),
+            title: Text('Share as Image'),
+            onTap: () => shareAsImage(joke),
+          ),
+          ListTile(
+            leading: Icon(Icons.share),
+            title: Text('Share to Social Media'),
+            onTap: () => Share.share(joke.value),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> shareAsImage(JokeModel joke) async {
+  // For now, just share the text since image sharing requires additional setup
+  await Share.share(joke.value);
+  // TODO: Implement actual image sharing functionality
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 import 'package:confetti/confetti.dart';
@@ -68,6 +69,9 @@ class JokeProvider extends ChangeNotifier {
   double get pitch => _pitch;
   double get volume => _volume;
   int get selectedColorSchemeIndex => _selectedColorSchemeIndex;
+
+  Queue<JokeModel> ttsQueue = Queue<JokeModel>();
+  bool isPlaying = false;
 
   JokeProvider() {
     confettiController = ConfettiController(duration: Duration(seconds: 1));
@@ -253,14 +257,15 @@ class JokeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> speakJoke() async {
-    if (currentJoke != null) {
-      if (currentJoke!.setup != null) {
-        await flutterTts.speak(currentJoke!.setup!);
+  Future<void> speakJoke([JokeModel? jokeToSpeak]) async {
+    final joke = jokeToSpeak ?? currentJoke;
+    if (joke != null) {
+      if (joke.setup != null) {
+        await flutterTts.speak(joke.setup!);
         await Future.delayed(Duration(seconds: 2));
-        await flutterTts.speak(currentJoke!.punchline!);
+        await flutterTts.speak(joke.punchline!);
       } else {
-        await flutterTts.speak(currentJoke!.value);
+        await flutterTts.speak(joke.value);
       }
     }
   }
@@ -430,4 +435,62 @@ class JokeProvider extends ChangeNotifier {
     JokeCategory.oneLiners: 'https://v2.jokeapi.dev/joke/Miscellaneous,Dark?safe-mode&type=single',
     JokeCategory.all: 'https://v2.jokeapi.dev/joke/Any?safe-mode',
   };
+
+  Future<void> cacheJokes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jokes = await fetchBatchJokes();
+    await prefs.setString('cached_jokes', json.encode(jokes));
+  }
+
+  Future<List<JokeModel>> fetchBatchJokes() async {
+    List<JokeModel> jokes = [];
+    for (int i = 0; i < 10; i++) {
+      try {
+        final response = await _getJokeFromApi(JokeCategory.all);
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final joke = JokeModel.fromJson(data);
+          jokes.add(joke);
+        }
+      } catch (e) {
+        print('Error fetching batch joke: $e');
+      }
+    }
+    return jokes;
+  }
+
+  Future<JokeModel?> getOfflineJoke() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('cached_jokes');
+    if (cached != null) {
+      final jokes = json.decode(cached) as List;
+      final random = Random().nextInt(jokes.length);
+      return JokeModel.fromJson(jokes[random]);
+    }
+    return null;
+  }
+
+  Future<void> queueJokeForTTS(JokeModel joke) async {
+    ttsQueue.add(joke);
+    if (!isPlaying) {
+      playNextInQueue();
+    }
+  }
+
+  Future<void> playNextInQueue() async {
+    if (ttsQueue.isEmpty) {
+      isPlaying = false;
+      return;
+    }
+
+    isPlaying = true;
+    final joke = ttsQueue.removeFirst();
+    await speakJoke(joke);
+    playNextInQueue();
+  }
+
+  void setCurrentJoke(JokeModel joke) {
+    currentJoke = joke;
+    notifyListeners();
+  }
 }
