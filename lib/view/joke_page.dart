@@ -912,7 +912,7 @@ class ThemeColorSelector extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: jokeProvider.themeColors[index].primary,
+                      color: jokeProvider.themeColors[index],
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: index == jokeProvider.selectedColorSchemeIndex

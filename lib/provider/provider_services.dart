@@ -52,15 +52,17 @@ class JokeProvider extends ChangeNotifier {
   double _pitch = 1.0;
   double _volume = 1.0;
   
-  final List<ColorScheme> themeColors = [
-    ColorScheme.fromSeed(seedColor: Colors.blue),
-    ColorScheme.fromSeed(seedColor: Colors.purple),
-    ColorScheme.fromSeed(seedColor: Colors.orange),
-    ColorScheme.fromSeed(seedColor: Colors.green),
-    ColorScheme.fromSeed(seedColor: Colors.pink),
+  final List<Color> themeColors = [
+    Colors.blue,
+    Colors.purple,
+    Colors.orange,
+    Colors.green,
+    Colors.pink,
   ];
   int _selectedColorSchemeIndex = 0;
-  ColorScheme get currentColorScheme => themeColors[_selectedColorSchemeIndex];
+  ColorScheme get currentColorScheme => ColorScheme.fromSeed(
+    seedColor: themeColors[_selectedColorSchemeIndex],
+  );
 
   String get selectedVoice => _selectedVoice;
   double get pitch => _pitch;
@@ -142,14 +144,14 @@ class JokeProvider extends ChangeNotifier {
           if (data is Map<String, dynamic>) {
             if (data.containsKey('joke')) {
               currentJoke = JokeModel(
-                id: data['id'],
+                id: data['id'].toString(),
                 value: data['joke'],
                 categories: [],
                 createdAt: DateTime.now(),
               );
             } else if (data.containsKey('setup')) {
               currentJoke = JokeModel(
-                id: DateTime.now().toString(),
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
                 value: '${data['setup']} ${data['punchline']}',
                 setup: data['setup'],
                 punchline: data['punchline'],
@@ -157,13 +159,21 @@ class JokeProvider extends ChangeNotifier {
                 createdAt: DateTime.now(),
               );
             } else if (data.containsKey('value')) {
-              currentJoke = JokeModel.fromJson(data);
-            } else if (data.containsKey('joke') || data.containsKey('delivery')) {
+              currentJoke = JokeModel(
+                id: data['id'].toString(),
+                value: data['value'],
+                categories: List<String>.from(data['categories'] ?? []),
+                createdAt: data['created_at'] != null 
+                    ? DateTime.parse(data['created_at']) 
+                    : DateTime.now(),
+                iconUrl: data['icon_url'],
+              );
+            } else if (data.containsKey('type')) {
               currentJoke = JokeModel(
                 id: data['id'].toString(),
                 value: data['type'] == 'single' 
-                  ? data['joke'] 
-                  : '${data['setup']} ${data['delivery']}',
+                    ? data['joke'] 
+                    : '${data['setup']} ${data['delivery']}',
                 setup: data['type'] == 'twopart' ? data['setup'] : null,
                 punchline: data['type'] == 'twopart' ? data['delivery'] : null,
                 categories: [data['category']],
@@ -179,11 +189,16 @@ class JokeProvider extends ChangeNotifier {
             _saveStats();
             _saveHistory();
             if (showConfetti) confettiController.play();
-            if (autoReadEnabled) await speakJoke();
           }
         }
       } catch (e) {
         print('Error fetching joke: $e');
+        currentJoke = JokeModel(
+          id: DateTime.now().toString(),
+          value: 'Failed to fetch joke. Please try again.',
+          categories: [],
+          createdAt: DateTime.now(),
+        );
       }
 
       isLoading = false;
